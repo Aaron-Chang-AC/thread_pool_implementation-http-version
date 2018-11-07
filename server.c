@@ -33,7 +33,6 @@ void send_file_content(int client_sock,FILE *ipt,int ty)//take care if ty is -1
         content[i]=c;
         i++;
     }
-    fclose(ipt);
     sprintf(msg,"HTTP/1.x %d %s\r\nContent-Type: %s\r\nServer: httpserver/1.x\r\n\r\n%s",status_code[OK],"OK",extensions[ty].mime_type,content);
     send(client_sock, msg, strlen(msg),0);
     return;
@@ -94,20 +93,20 @@ void request_decode(int client_sock)
             break;
         }
     }
-    if(j==0)//if no request is sent by the client
+    if(j==0)
         return;
 
     int flag=check_if_dir(FILE_OR_DIR);
-    if(flag==1) { //if the target is a file
+    if(flag==1) {
         DIR* d;
         char temp1[128];
         char file_type[7];
         sscanf(FILE_OR_DIR,"%[^.].%s",temp1,file_type);
 
-        int ty=check_file_type(file_type);//0~8 or-1
+        int ty=check_file_type(file_type);//0 to 8 or -1
 
         char t[200]="/home/os2018/hw2-simple-my-http-server-Aaron-Chang-AC/testdir"; //this can be changed by the user
-        int tmp=chdir(t);//0 for success -1 for errors
+        int tmp=chdir(t);
         if(tmp==-1) {
             printf("Please ensure that the directory is /home/os2018/hw2-simple-my-http-server-Aaron-Chang-AC/testdir\n");
 
@@ -116,22 +115,25 @@ void request_decode(int client_sock)
             memset(file_path,'\0',sizeof(file_path));
             sprintf(file_path,".%s",FILE_OR_DIR);
 
-            FILE *ipt=fopen(file_path,"r");
-            if(ty==-1) { //415 UNSUPPORT_MEDIA_TYPE
+            FILE *ipt;
+            ipt=fopen(file_path,"r");
+            if(ty==-1) {
                 char msg[500];
                 sprintf(msg,"HTTP/1.x %d %s\r\nContent-Type: \r\nServer: httpserver/1.x\r\n\r\n",status_code[UNSUPPORT_MEDIA_TYPE],"UNSUPPORT_MEDIA_TYPE");
                 send(client_sock, msg, strlen(msg),0);
-            } else if(!ipt) {
+            } else if(ipt) {
                 send_file_content(client_sock,ipt,ty);
-            } else { //404 NOT_FOUND
+            } else {
                 char msg[500];
                 sprintf(msg,"HTTP/1.x %d %s\r\nContent-Type: \r\nServer: httpserver/1.x\r\n\r\n",status_code[NOT_FOUND],"NOT_FOUND");
                 send(client_sock, msg, strlen(msg),0);
             }
+            if(ipt)
+                fclose(ipt);
         }
-    } else if(flag==0) { //if the target is a directory
-
-    } else { //BAD_REQUEST
+    } else if(flag==0) {
+        printf("NOT YET\n");
+    } else {
         char msg[500];
         sprintf(msg,"HTTP/1.x %d %s\r\nContent-Type: \r\nServer: httpserver/1.x\r\n\r\n",status_code[BAD_REQUEST],"BAD_REQUEST");
         send(client_sock, msg, strlen(msg),0);
