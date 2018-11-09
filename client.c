@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+pthread_mutex_t lock;
 struct request {
     char test[500];
     char FILE_OR_DIR[128];
@@ -38,10 +39,14 @@ void send_request(struct request temp)
 }
 void recv_msg(int sock,char buffer[])
 {
-    recv(sock, buffer, 500,0);
-    printf("%s", buffer);
-    return;
+    pthread_mutex_lock(&lock);
 
+    recv(sock, buffer,4000,0);
+    printf("%s", buffer);
+
+    pthread_mutex_unlock(&lock);
+
+    return;
 }
 int main(int argc,char *argv[])
 {
@@ -70,12 +75,12 @@ int main(int argc,char *argv[])
         printf("failed to connect the server!\n");
         return 0;
     }
+
+    char buffer[4000];
+    memset(buffer,'\0',4000);
+
     send_request(temp); //send 1st request
-    char buffer[500];
-    while(1) {
-        memset(buffer,'\0',sizeof(buffer));
-        recv_msg(sock,buffer);
-    }
+    recv_msg(sock,buffer);
 
 
 
