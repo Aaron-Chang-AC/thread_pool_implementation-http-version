@@ -15,6 +15,9 @@ struct request {
     int sock;
 
 };
+struct string_array {
+    char members[30];
+};
 void request_ini(struct request temp)
 {
     memset(temp.test,'\0',sizeof(temp.test));
@@ -42,11 +45,72 @@ void recv_msg(int sock,char buffer[])
     pthread_mutex_lock(&lock);
 
     recv(sock, buffer,4000,0);
-    printf("%s", buffer);
+    printf("%s\n", buffer);
 
     pthread_mutex_unlock(&lock);
 
     return;
+}
+void list_all_under_dir(char buffer[],struct request temp,int sock)
+{
+    char content_type[20];
+    char files_under_dir[250];
+    char temp1[200];
+
+    memset(content_type,'\0',sizeof(content_type));
+    memset(files_under_dir,'\0',sizeof(files_under_dir));
+    sscanf(buffer,"%[^:]: %s\r\nServer: httpserver/1.x\r\n\r\n%[_. -a-zA-Z0-9]",temp1,content_type,files_under_dir);
+    memset(buffer,'\0',4000);
+
+    if(strcmp(content_type,"directory")==0 && files_under_dir[0]!='\0') {
+        char *d=" ";
+        char *pt;
+        pt=strtok(files_under_dir,d);
+        struct string_array SA[100];
+        int i,cnt=0;
+        for(i=0; i<100; i++)
+            memset(SA[i].members,'\0',sizeof(SA[i].members));
+        i=0;
+        while(pt!=NULL) {
+            strcpy(SA[i].members,pt);
+            pt=strtok(NULL,d);
+            i++;
+
+        }
+        cnt=i;
+        for(i=0; i<cnt; i++) {
+            struct request temp2= {0};
+            request_ini(temp2);
+            strcpy(temp2.FILE_OR_DIR,temp.FILE_OR_DIR);
+            strcpy(temp2.LOCAL_HOST,temp.LOCAL_HOST);
+            strcpy(temp2.PORT,temp.PORT);
+            temp2.sock=sock;
+
+            strcat(temp2.FILE_OR_DIR,"/");
+            strcat(temp2.FILE_OR_DIR,SA[i].members);//concatenate dir
+
+            int flag=check_if_dir(temp2);
+
+            char buffer1[4000];
+            memset(buffer1,'\0',4000);
+            if(flag==0) {
+                send_request(temp2);
+                recv_msg(sock,buffer1);
+                list_all_under_dir(buffer1,temp2,sock);//execute recursive function
+
+            } else {
+                send_request(temp2);
+                recv_msg(sock,buffer1);
+            }
+            memset(buffer,'\0',4000);
+        }
+
+
+    }
+    return;
+
+
+
 }
 int main(int argc,char *argv[])
 {
@@ -82,6 +146,8 @@ int main(int argc,char *argv[])
     send_request(temp); //send 1st request
     recv_msg(sock,buffer);
 
+    if(check_if_dir(temp)==0)
+        list_all_under_dir(buffer,temp,sock);//if 1st request is for a dir
 
 
 
